@@ -312,7 +312,7 @@ class ARCSolver:
                             4. Hypothesize why any prior attempts might have failed.
                             5. Describe the corrected or generalized rule in clear natural language.
                             6. All outputs get the same transformation rule.
-                            7. Maximum 7 transformations are applied.
+                            7. Maximum 8 transformations are applied.
                             8. All geometric rules are like this: rotate_180, rotate_270, transpose, flip_diagonal, flip_antidiagonal
                             9. All spatial rules are like this: shift, recenter
                             10. All scale rules are like this: zoom_2x, zoom_3x, downsample_2x
@@ -328,7 +328,7 @@ class ARCSolver:
                     Now fix the reasoning procedure and find the complete Python function `transform(grid)` that would perform
                     the same rule discovered from the above examples.
                     if it did not fully match all output, try again to get fully matched transformation function.
-                    Max attempts: 7
+                    Max attempts: 5
                     Apply the most likely transformation and return the output grid."""
 
         try:
