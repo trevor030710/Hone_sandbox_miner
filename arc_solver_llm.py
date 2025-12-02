@@ -159,7 +159,47 @@ class ARCSolver:
         test_input: List[List[int]],
     ) -> Optional[List[List[int]]]:
         """Use vLLM to solve the ARC problem"""
-        prompt = self._create_arc_prompt(train_examples, test_input)
+        task_prompt = self._create_arc_prompt(train_examples, test_input)
+        
+        system_prompt = f"""You are participating in the ARC-AGI-2 reasoning challenge.
+
+                            Each task gives several train input/output pairs made of integer grids (0–9 colors).
+                            Your goal is to discover the *exact* transformation that maps the input to the output.
+                            Then, you will write a single Python function:
+
+                                def transform(grid: List[List[int]]) -> List[List[int]]:
+
+                            The function must take a 2D list of integers and return a new 2D list of integers
+                            representing the transformed grid. Do not read or write files; do not import libraries.
+                            Use only built-in Python and simple loops, conditionals, list comprehensions.
+                            
+                            Follow this reasoning procedure strictly:
+
+                            <fix_reasoning>
+                            1. Carefully analyze all train input/output pairs.
+                            2. Identify invariant relationships between input and output (e.g., spatial patterns, color rules, symmetry, bounding boxes, adjacency).
+                            3. Propose a symbolic transformation rule that explains every observed mapping.
+                            4. Hypothesize why any prior attempts might have failed.
+                            5. Describe the corrected or generalized rule in clear natural language.
+                            6. All outputs get the same transformation rule.
+                            7. Maximum 8 transformations are applied.
+                            8. All geometric rules are like this: rotate_180, rotate_270, transpose, flip_diagonal, flip_antidiagonal
+                            9. All spatial rules are like this: shift, recenter
+                            10. All scale rules are like this: zoom_2x, zoom_3x, downsample_2x
+                            11. Color rules are like this: swap_colors, remove_color, highlight_color
+                            12. Physics rules are like this: gravity_down, gravity_up, gravity_left, gravity_right
+                            13. Between previous transformation and the current transformation, there should be avoid rules(flip_horizontal, flip_vertical, rotate_90, rotate_270, rotate_180, gravity_down, gravity_up, gravity_left, gravity_right).
+                            </fix_reasoning>"""
+                            
+        prompt = f"""
+                    Now fix the reasoning procedure and find the complete Python function `transform(grid)` that would perform
+                    the same rule discovered from the above examples.
+                    if it did not fully match all output, try again to get fully matched transformation function.
+                    Max attempts: 5
+                    Apply the most likely transformation and return the output grid.
+                    
+                    {task_prompt}
+                    """
 
         try:
             response = self.vllm_client.chat.completions.create(
@@ -167,17 +207,12 @@ class ARCSolver:
                 messages=[
                     {
                         "role": "system",
-                        "content": (
-                            "You are an expert at solving ARC (Abstraction and Reasoning Corpus) "
-                            "puzzles. Analyze the pattern in the training examples and apply it "
-                            "to the test input. Return ONLY a valid JSON array representing "
-                            "the output grid."
-                        ),
+                        "content": system_prompt,
                     },
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0.1,
-                max_tokens=2000,
+                temperature=0.7,
+                max_tokens=16384,
             )
 
             content = response.choices[0].message.content.strip()
